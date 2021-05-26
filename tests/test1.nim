@@ -8,5 +8,16 @@
 import unittest
 
 import nim_dezero
-test "can add":
-  check add(5, 5) == 10
+
+suite "Test Varibles.nim":
+  test "can init int variable":
+    var v = initVariable[int](1)
+    check v.data == 1
+
+  test "can init Vector varible":
+    var
+      vec = randomVector(5, 3.5)
+      v = initVariable(vec)
+    check v.data == vec
+
+
