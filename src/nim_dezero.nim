@@ -2,20 +2,16 @@
 # exports the main API in this file. Note that you cannot rename this file
 # but you can remove it if you wish.
 
-include nim_dezero/function
-include neo
+import nim_dezero/types
+import nim_dezero/function
+import nim_dezero/extra_ops
+import neo
 
 var
-  A = Square[Vector[float]]()
-  B = Exp[Vector[float]]()
-  C = Square[Vector[float]]()
-  x = initVariable[Vector[float]](constantVector(1, 0.5))
-  a = A.call(x)
-  b = B.call(a)
-  y = C.call(b)
+  x = initVariable(0.5)
+  y = x.square.exp.square
 
 echo y.data
 
-y.grad = constantVector(1, 1.0)
 y.backward()
 echo x.grad

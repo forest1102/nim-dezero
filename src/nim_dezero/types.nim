@@ -1,12 +1,12 @@
-import neo, sugar, deques
+import neo, sugar, deques, options
 type
   Functionable* = Vector[float] or Matrix[float]
   Variable *[T: Functionable] = ref object of RootObj
-    d*: T
+    d: T
     grad*: T
     creator: Function[T]
   Function*[T: Functionable] = ref object
-    input*, output*: Variable[T]
+    input, output: Variable[T]
     f: T -> T
     b: (T, T) -> T
 
@@ -14,15 +14,30 @@ proc backward*[F: Function](f: var F, gy: F.T): F.T {.inline.}
 
 ## Variable Methods
 
-proc initVariable*[T](d: T): Variable[T] {.inline.} = Variable[T](d: d)
+proc initVariable*(d: float, grad: float = 1.0): auto {.inline.} = 
+  Variable[Vector[float]](d: constantVector(1, d), grad: constantVector(1, grad))
 
-proc data*[T](v: Variable[T]): T {.inline.} = v.d
+proc initVariable*[T: Vector[float]](d: T, grad:Option[T] = none(T)): Variable[T] {.inline.} = 
+  if grad.isSome:
+    checkDim d.len == grad.get.len 
+    return Variable[T](d: d, grad: grad.get)
+  else:
+    return Variable[T](d: d, grad: ones(d.len))
 
-proc set_creator*[T: Functionable](v: var Variable[T], f: var Function[T]): void =
+proc initVariable*[T: Matrix[float]](d: T, grad:Option[T] = none(T)): Variable[T] {.inline.} = 
+  if grad.isSome:
+    checkDim d.M == grad.get.M and d.N == grad.get.N
+    return Variable[T](d: d, grad: grad.get)
+  else:
+    return Variable[T](d: d, grad: ones(d.M, d.N))
+
+proc data*[V: Variable](v: V): V.T {.inline.} = v.d
+
+proc set_creator*[V: Variable](v: var V, f: var Function[V.T]): void =
   v.creator = f
 
-proc backward*[T: Functionable](v: var Variable[T]): void =
-  var funcs = initDeque[Function[T]]()
+proc backward*[V: Variable](v: var V): void =
+  var funcs = initDeque[Function[V.T]]()
   funcs.addLast(v.creator)
   while funcs.len > 0:
     var
@@ -35,7 +50,8 @@ proc backward*[T: Functionable](v: var Variable[T]): void =
 
 ## Function's methods
 
-proc createFunction*[T](forward: T -> T, backward: (T, T) -> T): Function[T] {.inline.} =
+proc createFunction*[T: Functionable](forward: T -> T, backward: (T, T) ->
+    T): Function[T] {.inline.} =
   Function[T](f: forward, b: backward)
 
 proc call*[F: Function](f: var F, input: Variable[F.T]): Variable[F.T] {.inline.} =
