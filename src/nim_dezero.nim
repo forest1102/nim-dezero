@@ -2,7 +2,7 @@
 # exports the main API in this file. Note that you cannot rename this file
 # but you can remove it if you wish.
 
-import nim_dezero/types
+import nim_dezero/core
 import nim_dezero/function
 import nim_dezero/extra_ops
 import neo

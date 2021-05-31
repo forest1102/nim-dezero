@@ -1,5 +1,5 @@
 import neo, math, sugar, options
-import types
+import core
 
 
 proc Exp*[T: Functionable](): Function[T] {.inline.} =

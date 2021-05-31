@@ -8,7 +8,7 @@
 import unittest, options
 
 import neo
-include nim_dezero/types
+include nim_dezero/core
 include nim_dezero/function
 include nim_dezero/extra_ops
 
