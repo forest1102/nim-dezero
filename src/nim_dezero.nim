@@ -5,13 +5,10 @@
 import nim_dezero/core
 import nim_dezero/function
 import nim_dezero/extra_ops
+import nim_dezero/config
 import neo
 
-var
-  x = initVariable(0.5)
-  y = x.square.exp.square
+no_grad:
+  echo configuration.enable_backprop
 
-echo y.data
-
-y.backward()
-echo x.grad
+echo configuration.enable_backprop
