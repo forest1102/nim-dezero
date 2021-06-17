@@ -8,7 +8,5 @@ import nim_dezero/extra_ops
 import nim_dezero/config
 import neo
 
-no_grad:
-  echo configuration.enable_backprop
-
-echo configuration.enable_backprop
+var x = initVariable(randomMatrix(3, 5))
+echo x

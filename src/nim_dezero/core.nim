@@ -1,4 +1,4 @@
-import neo, sugar, options, sequtils, binaryheap, sets, hashes
+import neo, sugar, options, sequtils, binaryheap, sets, hashes, strformat, strutils
 import utils, config
 type
   Functionable* = Vector[float] or Matrix[float]
@@ -69,6 +69,18 @@ proc backward*[V: Variable](v: var V, retain_grad = false): void =
 proc cleargrad*[V: Variable](v: var V): void =
   v.grad = none(V.T)
 
+proc shape*(v: Variable[Vector[float]]): (int, Option[int]) = (v.d.len, none(int))
+proc shape*(v: Variable[Matrix[float]]): (int, Option[int]) = (v.d.M, some(v.d.N))
+
+proc ndim*(v: Variable[Vector[float]]): int = 1
+proc ndim*(v: Variable[Matrix[float]]): int = 2
+
+proc len*(v: Variable[Vector[float]]): int = v.d.len
+proc len*(v: Variable[Matrix[float]]): int = v.d.M
+
+proc `$`*[V: Variable](v: V): string =
+  let p = ($(v.d)).replace("\n", '\n' & repeat(' ', 9))
+  return fmt"variable({p})"
 ## Function's methods
 
 proc createFunction*[T: Functionable](
