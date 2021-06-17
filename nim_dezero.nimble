@@ -12,3 +12,4 @@ bin           = @["nim_dezero"]
 
 requires "nim >= 1.4.4"
 requires "neo"
+requires "binaryheap"

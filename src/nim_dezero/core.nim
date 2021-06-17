@@ -1,69 +1,110 @@
-import neo, sugar, deques, options
+import neo, sugar, options, sequtils, binaryheap, sets, hashes
+import utils, config
 type
   Functionable* = Vector[float] or Matrix[float]
   Variable *[T: Functionable] = ref object of RootObj
     d: T
-    grad*: T
+    grad*: Option[T]
+    generation: int
     creator: Function[T]
-  Function*[T: Functionable] = ref object
-    input, output: Variable[T]
-    f: T -> T
-    b: (T, T) -> T
+  Function*[T: Functionable] = ref object of RootObj
+    inputs, outputs: seq[Variable[T]]
+    generation: int
+    f: seq[T] -> seq[T]
+    b: (seq[T], seq[T]) -> seq[T]
 
-proc backward*[F: Function](f: var F, gy: F.T): F.T {.inline.}
+proc backward*[F: Function](f: var F, gy: seq[F.T]): seq[F.T] {.inline.}
 
 ## Variable Methods
 
-proc initVariable*(d: float, grad: float = 1.0): auto {.inline.} = 
-  Variable[Vector[float]](d: constantVector(1, d), grad: constantVector(1, grad))
+proc initVariable*(d: float): auto {.inline.} =
+  Variable[Vector[float]](d: constantVector(1, d), generation: 0)
 
-proc initVariable*[T: Vector[float]](d: T, grad:Option[T] = none(T)): Variable[T] {.inline.} = 
-  if grad.isSome:
-    checkDim d.len == grad.get.len 
-    return Variable[T](d: d, grad: grad.get)
-  else:
-    return Variable[T](d: d, grad: ones(d.len))
-
-proc initVariable*[T: Matrix[float]](d: T, grad:Option[T] = none(T)): Variable[T] {.inline.} = 
-  if grad.isSome:
-    checkDim d.M == grad.get.M and d.N == grad.get.N
-    return Variable[T](d: d, grad: grad.get)
-  else:
-    return Variable[T](d: d, grad: ones(d.M, d.N))
+proc initVariable*[T: Functionable](d: T): Variable[
+    T] {.inline.} =
+  Variable[T](d: d, generation: 0)
 
 proc data*[V: Variable](v: V): V.T {.inline.} = v.d
 
 proc set_creator*[V: Variable](v: var V, f: var Function[V.T]): void =
   v.creator = f
+  v.generation = f.generation + 1
 
-proc backward*[V: Variable](v: var V): void =
-  var funcs = initDeque[Function[V.T]]()
-  funcs.addLast(v.creator)
-  while funcs.len > 0:
+proc hash*[F: Function](x: F): Hash =
+  result = hash(x.generation)
+  result = result !& hash(x.b)
+  result = !$result
+
+proc backward*[V: Variable](v: var V, retain_grad = false): void =
+  if v.grad.isNone:
+    v.grad = ones_like(v.data).some
+
+
+  var
+    funcs = newHeap[Function[V.T]]((x, y: Function[V.T]) => y.generation - x.generation)
+    seen_set = [v.creator].toHashSet()
+  funcs.push(v.creator)
+  while funcs.size > 0:
     var
-      f = funcs.popLast
-      x = f.input
-      y = f.output
-    x.grad = f.backward(y.grad)
-    if x.creator != nil:
-      funcs.addLast(x.creator)
+      f = funcs.pop
+      gys = collect(newSeq):
+        for output in f.outputs:
+          output.grad.get
+      gxs = f.backward(gys)
+    for i in 0..<min(f.inputs.len, gxs.len):
+      var x: V
+      shallowCopy(x, f.inputs[i])
+      if x.grad.isNone:
+        x.grad = gxs[i].some
+      else:
+        x.grad = (x.grad.get + gxs[i]).some
+      if not x.creator.isNil and x.creator notin seen_set:
+        funcs.push(x.creator)
+        seen_set.incl(x.creator)
+    if not retain_grad:
+      for y in f.outputs:
+        y.grad = none(V.T)
+
+proc cleargrad*[V: Variable](v: var V): void =
+  v.grad = none(V.T)
 
 ## Function's methods
 
-proc createFunction*[T: Functionable](forward: T -> T, backward: (T, T) ->
-    T): Function[T] {.inline.} =
+proc createFunction*[T: Functionable](
+  forward: seq[T] -> seq[T],
+  backward: (seq[T], seq[T]) -> seq[T]): Function[T] {.inline.} =
   Function[T](f: forward, b: backward)
 
-proc call*[F: Function](f: var F, input: Variable[F.T]): Variable[F.T] {.inline.} =
-  var
-    x = input.data
-    y = f.f(x)
-    output = initVariable(y)
-  output.set_creator(f)
-  f.input = input
-  f.output = output
-  return output
+proc createFunction*[T: Functionable](
+  forward: seq[T] -> T,
+  backward: (seq[T], seq[T]) -> seq[T]): Function[T] {.inline.} =
+  Function[T](f: (xs: seq[T]) => @[forward(xs)], b: backward)
+proc createFunction*[T: Functionable](
+  forward: seq[T] -> T,
+  backward: (seq[T], seq[T]) -> T): Function[T] {.inline.} =
+  Function[T](f: (xs: seq[T]) => @[forward(xs)], b: (xs, gys: seq[T]) => @[
+      backward(xs, gys)])
 
-proc backward*[F: Function](f: var F, gy: F.T): F.T {.inline.} =
-  var x = f.input.data
-  return f.b(x, gy)
+proc call*[F: Function](f: var F, inputs: varargs[Variable[F.T]]): seq[Variable[
+    F.T]] {.inline.} =
+  var
+    xs = collect(newSeq):
+      for x in inputs:
+        x.data
+    ys = f.f(xs)
+    outputs = collect(newSeq):
+      for y in ys:
+        initVariable(y)
+  if configuration.enable_backprop:
+    f.generation = inputs.mapIt(it.generation).max
+    for output in outputs.mitems:
+      output.set_creator(f)
+    f.inputs = toSeq(inputs)
+    f.outputs = outputs
+  return outputs
+
+proc backward*[F: Function](f: var F, gy: seq[F.T]): seq[F.T] {.inline.} =
+  var xs = collect(newSeq):
+    for input in f.inputs:
+      input.data
+  return f.b(xs, gy)
