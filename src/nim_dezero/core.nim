@@ -5,6 +5,7 @@ type
   Variable *[T: Functionable] = ref object of RootObj
     d: T
     grad*: Option[T]
+    name: Option[string]
     generation: int
     creator: Function[T]
   Function*[T: Functionable] = ref object of RootObj
@@ -17,12 +18,12 @@ proc backward*[F: Function](f: var F, gy: seq[F.T]): seq[F.T] {.inline.}
 
 ## Variable Methods
 
-proc initVariable*(d: float): auto {.inline.} =
-  Variable[Vector[float]](d: constantVector(1, d), generation: 0)
+proc initVariable*(d: float, name = none(string)): auto {.inline.} =
+  Variable[Vector[float]](d: constantVector(1, d), generation: 0, name: name)
 
-proc initVariable*[T: Functionable](d: T): Variable[
+proc initVariable*[T: Functionable](d: T, name = none(string)): Variable[
     T] {.inline.} =
-  Variable[T](d: d, generation: 0)
+  Variable[T](d: d, generation: 0, name: name)
 
 proc data*[V: Variable](v: V): V.T {.inline.} = v.d
 
