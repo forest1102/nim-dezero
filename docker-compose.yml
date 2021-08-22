@@ -1,0 +1,9 @@
+version: '2'
+services:
+  dezero:
+    build: .
+    tty: true
+    volumes:
+      - .:/workspace/
+    environment:
+      CHOOSENIM_CHOOSE_VERSION: 1.4.8

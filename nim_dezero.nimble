@@ -5,7 +5,6 @@ author        = "issei morita"
 description   = "A new awesome nimble package"
 license       = "MIT"
 srcDir        = "src"
-bin           = @["nim_dezero"]
 
 
 # Dependencies

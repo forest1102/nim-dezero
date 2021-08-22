@@ -4,3 +4,6 @@
 .DS_Store
 *.out
 combined.nim
+build/
+!dockerfile
+bin/
